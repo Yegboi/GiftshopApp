@@ -1,15 +1,12 @@
 package com.example.steamfun.data
 
-import android.graphics.BitmapFactory
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Talks to Steam's two public store endpoints. Neither needs a key.
+ * Talks to Steam's public endpoints. None of them needs a key.
  *
  * Every failure — no network, a rate limit, an appid that is not a game —
  * comes back as null so the caller can simply draw another game.
@@ -21,7 +18,7 @@ class SteamApi {
         val detailsBody = get(
             "https://store.steampowered.com/api/appdetails?appids=$appId&l=english",
         ) ?: return@withContext null
-        val details = SteamJson.parseGameDetails(appId, detailsBody) ?: return@withContext null
+        val page = SteamJson.parseStorePage(appId, detailsBody) ?: return@withContext null
 
         val reviewsBody = get(
             "https://store.steampowered.com/appreviews/$appId" +
@@ -29,21 +26,20 @@ class SteamApi {
         ) ?: return@withContext null
         val reviews = SteamJson.parseReviewCount(reviewsBody) ?: return@withContext null
 
-        SteamGame(
-            appId = appId,
-            name = details.name,
-            headerImageUrl = details.headerImageUrl,
-            totalReviews = reviews,
-        )
+        SteamGame(page = page, totalReviews = reviews)
     }
 
-    /** Header artwork. A missing image only costs the picture, not the round. */
-    suspend fun loadHeader(url: String): ImageBitmap? = withContext(Dispatchers.IO) {
+    /**
+     * Downloads Steam's whole catalogue of appids. Tens of megabytes of JSON,
+     * so it is streamed and only the numbers are kept — see [AppListParser].
+     */
+    suspend fun downloadAppIds(): IntArray? = withContext(Dispatchers.IO) {
         var connection: HttpURLConnection? = null
         try {
-            connection = open(url)
+            connection = open("https://api.steampowered.com/ISteamApps/GetAppList/v2/")
             if (connection.responseCode !in 200..299) return@withContext null
-            connection.inputStream.use { BitmapFactory.decodeStream(it) }?.asImageBitmap()
+            val ids = connection.inputStream.use { AppListParser.readAppIds(it) }
+            ids.takeIf { it.size >= MIN_PLAUSIBLE_CATALOGUE }
         } catch (e: Exception) {
             null
         } finally {
@@ -68,13 +64,21 @@ class SteamApi {
         (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             connectTimeout = TIMEOUT_MS
-            readTimeout = TIMEOUT_MS
+            readTimeout = CATALOGUE_READ_TIMEOUT_MS
             instanceFollowRedirects = true
             setRequestProperty("User-Agent", USER_AGENT)
+            // Deliberately no Accept-Encoding: setting it by hand switches off
+            // HttpURLConnection's transparent gunzip and hands back raw bytes.
         }
 
     private companion object {
-        const val TIMEOUT_MS = 12_000
+        const val TIMEOUT_MS = 15_000
+
+        /** The catalogue is large; give it room before giving up. */
+        const val CATALOGUE_READ_TIMEOUT_MS = 60_000
+
+        /** A far smaller answer than this means something went wrong upstream. */
+        const val MIN_PLAUSIBLE_CATALOGUE = 10_000
 
         /** Steam serves the plain endpoints more reliably with a real user agent. */
         const val USER_AGENT =

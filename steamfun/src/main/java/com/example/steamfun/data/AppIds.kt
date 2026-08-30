@@ -1,16 +1,14 @@
 package com.example.steamfun.data
 
 /**
- * Seed of Steam appids to draw rounds from.
+ * Fallback list of Steam appids.
  *
- * Only the ids live here — name, artwork and review count are fetched from
- * Steam for every round, so nothing about a game is baked into the app and the
- * count shown is always the current one. An id that turns out to be DLC, a
- * tool or nothing at all is filtered out at runtime and another is drawn, so a
- * wrong entry costs a redraw rather than showing something false.
+ * Rounds normally draw from Steam's whole catalogue, downloaded on first
+ * launch. This list only stands in when that download fails, so the game still
+ * runs offline of the catalogue rather than refusing to start.
  *
- * The spread is deliberate: blockbusters, mid-size titles and smaller games,
- * so the roundabout buckets do not all collapse onto "5.000+".
+ * Only ids live here — name, artwork and review count are fetched per round, so
+ * nothing about a game is baked in and the count shown is always current.
  */
 object AppIds {
 

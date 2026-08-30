@@ -2,13 +2,10 @@
 
 package com.example.steamfun.ui
 
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,24 +26,44 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.steamfun.data.GuessMode
 import com.example.steamfun.data.Guessing
 import com.example.steamfun.data.ReviewBucket
-import com.example.steamfun.data.formatCount
+import com.example.steamfun.data.Screenshot
+import com.example.steamfun.data.StorePage
+import com.example.steamfun.data.Trailer
 
 @Composable
 fun GameScreen(viewModel: SteamFunViewModel) {
     val round = viewModel.round
+
+    var openScreenshot by remember { mutableStateOf<Screenshot?>(null) }
+    var openTrailer by remember { mutableStateOf<Trailer?>(null) }
+    var showDescription by remember { mutableStateOf(false) }
+
+    val page: StorePage? = when (round) {
+        is RoundState.Asking -> round.game.page
+        is RoundState.Answered -> round.game.page
+        else -> null
+    }
+
+    // A new store page closes whatever overlay belonged to the previous one.
+    LaunchedEffect(page?.appId) {
+        openScreenshot = null
+        openTrailer = null
+        showDescription = false
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -78,37 +95,43 @@ fun GameScreen(viewModel: SteamFunViewModel) {
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                ModeSelector(
-                    mode = viewModel.mode,
-                    onSelect = viewModel::selectMode,
-                )
+                ModeSelector(mode = viewModel.mode, onSelect = viewModel::selectMode)
 
                 when (round) {
-                    RoundState.Loading -> LoadingCard()
+                    is RoundState.Loading -> LoadingCard(round.message)
 
-                    is RoundState.Failed -> FailedCard(
-                        message = round.message,
-                        onRetry = viewModel::nextGame,
-                    )
+                    is RoundState.Failed -> FailedCard(round.message, viewModel::nextGame)
 
                     is RoundState.Asking -> {
-                        StorePageCard(
-                            name = round.game.name,
-                            header = round.header,
-                            // The count stays out of this state on purpose.
-                            revealed = null,
+                        StorePageView(
+                            page = round.game.page,
+                            // Held back on purpose until a guess is in.
+                            revealedReviews = null,
+                            onOpenScreenshot = { openScreenshot = it },
+                            onPlayTrailer = { openTrailer = it },
+                            onOpenDescription = { showDescription = true },
                         )
-                        GuessControls(viewModel = viewModel)
+                        GuessControls(viewModel)
                     }
 
                     is RoundState.Answered -> {
-                        StorePageCard(
-                            name = round.game.name,
-                            header = round.header,
-                            revealed = round.game.totalReviews,
+                        ResultCard(round, viewModel::nextGame)
+                        StorePageView(
+                            page = round.game.page,
+                            revealedReviews = round.game.totalReviews,
+                            onOpenScreenshot = { openScreenshot = it },
+                            onPlayTrailer = { openTrailer = it },
+                            onOpenDescription = { showDescription = true },
                         )
-                        ResultCard(round = round, onNext = viewModel::nextGame)
                     }
+                }
+
+                if (viewModel.catalogueSize > 0) {
+                    Text(
+                        text = "Gezogen aus ${viewModel.catalogueSize} Steam-Einträgen.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
@@ -116,6 +139,20 @@ fun GameScreen(viewModel: SteamFunViewModel) {
         if (round is RoundState.Answered && round.correct) {
             ConfettiBurst(modifier = Modifier.fillMaxSize())
         }
+    }
+
+    openScreenshot?.let { shot ->
+        ScreenshotDialog(screenshot = shot, onDismiss = { openScreenshot = null })
+    }
+    openTrailer?.let { trailer ->
+        TrailerDialog(trailer = trailer, onDismiss = { openTrailer = null })
+    }
+    if (showDescription && page != null) {
+        DescriptionDialog(
+            title = page.name,
+            html = page.detailedDescriptionHtml,
+            onDismiss = { showDescription = false },
+        )
     }
 }
 
@@ -128,64 +165,6 @@ private fun ModeSelector(mode: GuessMode, onSelect: (GuessMode) -> Unit) {
                 onClick = { onSelect(candidate) },
                 label = { Text(candidate.label) },
             )
-        }
-    }
-}
-
-@Composable
-private fun StorePageCard(name: String, header: ImageBitmap?, revealed: Int?) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    ) {
-        Column {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(HEADER_ASPECT)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (header != null) {
-                    Image(
-                        bitmap = header,
-                        contentDescription = "Store-Bild von $name",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                    )
-                } else {
-                    Text(
-                        text = "Kein Bild",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = name,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = if (revealed == null) {
-                        "Wie viele Reviews hat dieses Spiel?"
-                    } else {
-                        "Tatsächlich: ${formatCount(revealed)} Reviews"
-                    },
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = if (revealed == null) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.primary
-                    },
-                    fontWeight = if (revealed == null) FontWeight.Normal else FontWeight.Bold,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-            }
         }
     }
 }
@@ -249,12 +228,18 @@ private fun ResultCard(round: RoundState.Answered, onNext: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             if (round.correct) {
-                Text(text = "Richtig!", style = MaterialTheme.typography.headlineSmall,
-                     color = MaterialTheme.colorScheme.secondary)
+                Text(
+                    text = "Richtig!",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
             } else {
                 Text(text = "❌", fontSize = 64.sp)
-                Text(text = "Daneben", style = MaterialTheme.typography.headlineSmall,
-                     color = MaterialTheme.colorScheme.error)
+                Text(
+                    text = "Daneben",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
             }
 
             Text(
@@ -271,9 +256,12 @@ private fun ResultCard(round: RoundState.Answered, onNext: () -> Unit) {
                 )
             }
 
-            Button(onClick = onNext, modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 10.dp)) {
+            Button(
+                onClick = onNext,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp),
+            ) {
                 Text("Nächstes Spiel")
             }
         }
@@ -281,7 +269,7 @@ private fun ResultCard(round: RoundState.Answered, onNext: () -> Unit) {
 }
 
 @Composable
-private fun LoadingCard() {
+private fun LoadingCard(message: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -295,9 +283,10 @@ private fun LoadingCard() {
         ) {
             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             Text(
-                text = "Steam-Seite wird geladen …",
+                text = message,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
             )
         }
     }
@@ -326,5 +315,3 @@ private fun FailedCard(message: String, onRetry: () -> Unit) {
         }
     }
 }
-
-private const val HEADER_ASPECT = 460f / 215f

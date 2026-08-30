@@ -151,6 +151,12 @@ Ratespiel: die App zeigt eine zufällige Steam-Seite, du schätzt, wie viele
 Reviews das Spiel hat. Liegst du richtig, gibt es Konfetti; liegst du daneben,
 ein rotes ❌. Die echte Zahl erscheint erst nach dem Tipp.
 
+Gezeigt wird die Seite mit allem, was dazugehört: Titelbild, Trailer (antippen
+zum Abspielen), Screenshot-Karussell (antippen für Vollbild), Kurzbeschreibung,
+Entwickler, Erscheinungsdatum, Preis und Genres. Über „Ganze Beschreibung" öffnet
+sich Steams eigener Beschreibungstext als HTML — mitsamt der eingebetteten GIFs
+und AVIF-Bilder, die dort oft stehen.
+
 ## Zwei Modi
 
 **Roundabout** — sechs Knöpfe: `0 – 10`, `10 – 100`, `100 – 500`, `500 – 1.000`,
@@ -167,14 +173,26 @@ die spielbar bleiben. Nach dem Tipp steht da, um wie viel Prozent du daneben lag
 
 Alles kommt zur Laufzeit direkt von Steam, nichts steckt fest in der App:
 
-- `store.steampowered.com/api/appdetails` → Name und Store-Bild
+- `api.steampowered.com/ISteamApps/GetAppList/v2` → **der gesamte Steam-Katalog**
+- `store.steampowered.com/api/appdetails` → Seite, Medien, Beschreibung
 - `store.steampowered.com/appreviews/<id>?json=1` → `total_reviews`
 
-Damit ist die angezeigte Zahl immer die aktuelle und kann gar nicht erfunden
-sein. Eingebaut ist nur eine Liste von Appid-Kandidaten. Zeigt eine davon auf
-DLC, einen Soundtrack oder ins Leere, wird sie zur Laufzeit aussortiert und ein
-anderes Spiel gezogen — ein falscher Eintrag kostet also einen Nachzieher, nicht
-eine falsche Anzeige.
+Gezogen wird gleichverteilt aus dem **kompletten Katalog**, nicht aus einer
+Auswahl bekannter Titel — sonst kämen nur Blockbuster und jede Antwort wäre
+„5.000+". Entsprechend landet man meistens bei Namen, die man noch nie gehört
+hat, und die unteren Bereiche werden erst dadurch interessant.
+
+Der Katalog wird beim ersten Start einmal geladen. Die Antwort ist zig Megabyte
+JSON, wird deshalb im Stream gelesen und nur die Appids behalten — ein paar
+hunderttausend Ints statt der ganzen Datei. Danach liegt er eine Woche lokal.
+
+Die meisten Appids sind DLC, Soundtracks, Tools oder längst entfernt. Solche
+werden zur Laufzeit aussortiert (`type == "game"`) und ein anderer Eintrag
+gezogen. Eine Runde braucht deshalb im Schnitt ein paar Anläufe — der Ladetext
+zählt sie mit.
+
+Scheitert der Katalog-Download, greift eine kleine eingebaute Ersatzliste, damit
+das Spiel überhaupt läuft.
 
 **Ohne Internet läuft das Spiel nicht.** Es gibt bewusst keinen Offline-Vorrat:
 gespeicherte Reviewzahlen würden veralten und als „tatsächliche" Zahl schlicht
@@ -188,12 +206,17 @@ steamfun/src/main/java/com/example/steamfun/
 ├── data/
 │   ├── ReviewBucket.kt   die sechs Bereiche, lückenlos und überschneidungsfrei
 │   ├── Guessing.kt       Modi, Trefferregeln, Eingabe-Parsing
+│   ├── StorePage.kt      Seite, Screenshots, Trailer
 │   ├── SteamJson.kt      Antworten von Steam lesen
-│   ├── SteamApi.kt       HTTP und Bildladen
-│   └── AppIds.kt         Appid-Kandidaten
+│   ├── SteamApi.kt       HTTP
+│   ├── AppListParser.kt  Appids aus dem Katalog-Stream ziehen
+│   ├── AppIdCache.kt     Katalog binär auf Platte
+│   └── AppIds.kt         Ersatzliste, falls der Katalog fehlt
 └── ui/
-    ├── SteamFunViewModel.kt  Rundenablauf und Punktestand
-    ├── GameScreen.kt         Store-Karte, Eingabe, Ergebnis
+    ├── SteamFunViewModel.kt  Katalog, Rundenablauf, Punktestand
+    ├── GameScreen.kt         Modi, Eingabe, Ergebnis
+    ├── StorePageView.kt      Titelbild, Trailer, Screenshots, Fakten
+    ├── Overlays.kt           Vollbild für Screenshot, Trailer, Beschreibung
     ├── Confetti.kt           Partikel auf einem Canvas, ohne Fremdbibliothek
     └── theme/                Steams eigene Dunkelblautöne
 ```
@@ -201,14 +224,20 @@ steamfun/src/main/java/com/example/steamfun/
 Die Reviewzahl reist zwar ab der ersten Sekunde im Zustand mit, aber nur der
 Zustand `Answered` darf sie rendern — das ist das ganze Spiel.
 
-`ReviewBucket`, `Guessing` und `SteamJson` kommen ohne Android-Typen aus und
-sind mit 44 Unit-Tests abgedeckt, unter anderem gegen Steams Eigenart, bei
-unbekannten Appids `"data": []` statt eines Objekts zu senden.
+`ReviewBucket`, `Guessing`, `SteamJson`, `AppListParser` und `AppIdCache`
+kommen ohne Android-Typen aus und sind mit 73 Unit-Tests abgedeckt — unter
+anderem gegen Steams Eigenart, bei unbekannten Appids `"data": []` statt eines
+Objekts zu senden, und gegen die `http://`-Medienlinks, die Android sonst als
+Klartext blockiert.
 
 ## Grenzen
 
 - Getestet ist die Logik, nicht die Verbindung: die Steam-API war aus der
   Bauumgebung nicht erreichbar, das Zusammenspiel zeigt sich erst auf dem Gerät.
-- `appdetails` ist ratenbegrenzt (grob 200 Anfragen pro 5 Minuten). Wer sehr
-  schnell durchklickt, läuft in Fehlversuche.
-- Die Kandidatenliste ist fest im Code, nicht Steams vollständiger Katalog.
+- `appdetails` ist ratenbegrenzt (grob 200 Anfragen pro 5 Minuten). Da eine
+  Runde mehrere Anläufe braucht, kann sehr schnelles Durchklicken in die Drossel
+  laufen.
+- Der erste Start lädt den Katalog herunter — je nach Verbindung dauert das
+  einen Moment und kostet Datenvolumen. Danach nur noch einmal pro Woche.
+- Trailer laufen über die Systemkomponente `VideoView`. Exotische Formate, die
+  das Gerät nicht kann, spielen nicht.
