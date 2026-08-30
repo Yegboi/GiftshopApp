@@ -48,7 +48,7 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: giftshop-debug-apk
+          name: showbox-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
@@ -56,7 +56,7 @@ jobs:
       - name: Upload release APK (unsigned)
         uses: actions/upload-artifact@v4
         with:
-          name: giftshop-release-apk-unsigned
+          name: showbox-release-apk-unsigned
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 

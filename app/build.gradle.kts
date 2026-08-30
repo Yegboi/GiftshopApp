@@ -2,14 +2,15 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
-    namespace = "com.example.giftshop"
+    namespace = "com.example.showbox"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.giftshop"
+        applicationId = "com.example.showbox"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
@@ -60,6 +61,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.kotlinx.serialization.json)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)

@@ -5,28 +5,18 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Box body -->
+    <!-- Note head -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M32,50 H76 V80 a2,2 0 0 1 -2,2 H34 a2,2 0 0 1 -2,-2 Z" />
+        android:fillColor="#141414"
+        android:pathData="M31,74 a13,10 0 1,0 26,0 a13,10 0 1,0 -26,0 Z" />
 
-    <!-- Lid -->
+    <!-- Stem -->
     <path
-        android:fillColor="#FFE3B0"
-        android:pathData="M28,38 H80 V51 H28 Z" />
+        android:fillColor="#141414"
+        android:pathData="M55,30 H61 V74 H55 Z" />
 
-    <!-- Ribbon, vertical band across lid and body -->
+    <!-- Flag -->
     <path
-        android:fillColor="#F2A63B"
-        android:pathData="M49,38 H59 V82 H49 Z" />
-
-    <!-- Bow, left loop -->
-    <path
-        android:fillColor="#F2A63B"
-        android:pathData="M50,38 C42,38 36,34 36,29 c0,-3 2,-5 5,-5 c5,0 9,6 9,14 Z" />
-
-    <!-- Bow, right loop -->
-    <path
-        android:fillColor="#F2A63B"
-        android:pathData="M58,38 C66,38 72,34 72,29 c0,-3 -2,-5 -5,-5 c-5,0 -9,6 -9,14 Z" />
+        android:fillColor="#141414"
+        android:pathData="M61,28 C74,32 80,39 80,50 C80,41 73,37 61,34 Z" />
 </vector>

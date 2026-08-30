@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Giftshop" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Only styles the launch window; the UI itself is themed in Compose. -->
+    <style name="Theme.Showbox" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/ink</item>
+    </style>
 </resources>
