@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Only styles the launch window; the UI itself is themed in Compose. -->
+    <style name="Theme.SteamFun" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/steam_night</item>
+    </style>
+</resources>

@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   build:
-    name: Test, lint and build APK
+    name: Test, lint and build both APKs
     runs-on: ubuntu-latest
 
     steps:
@@ -45,19 +45,28 @@ jobs:
 
       # Installable straight from a phone: the debug APK is signed with the
       # standard debug keystore.
-      - name: Upload debug APK
+      - name: Upload Giftshop Crew debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: showbox-debug-apk
+          name: giftshop-crew-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
-      # Minified by R8 but unsigned, so it cannot be installed as-is.
-      - name: Upload release APK (unsigned)
+      - name: Upload Steam Fun debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: showbox-release-apk-unsigned
-          path: app/build/outputs/apk/release/*.apk
+          name: steam-fun-debug-apk
+          path: steamfun/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      # Minified by R8 but unsigned, so it cannot be installed as-is.
+      - name: Upload release APKs (unsigned)
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apks-unsigned
+          path: |
+            app/build/outputs/apk/release/*.apk
+            steamfun/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
       - name: Upload reports on failure
@@ -68,4 +77,6 @@ jobs:
           path: |
             app/build/reports/
             app/build/outputs/logs/
+            steamfun/build/reports/
+            steamfun/build/outputs/logs/
           if-no-files-found: ignore

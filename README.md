@@ -1,10 +1,30 @@
-# Giftshop Crew
+# GiftshopApp
 
-Android-App für den Festivalkiosk bei **Wasted in Jarmen**. Sechs Bereiche:
-Schicht-Countdown, Musikplayer mit Geschwindigkeitsregler, Quiz, Speed Dating,
-Schätzfragen und Podcast-Themen. Kotlin mit Jetpack Compose, durchgehend
-dunkles Theme: weiße Schrift, ein einziger Gelbton für Akzente, und je
-eine eigene Farbe pro Kategorie in der unteren Leiste.
+Zwei eigenständige Android-Apps in einem Repo. Sie teilen sich Gradle-Wrapper,
+Versionskatalog und CI, werden aber getrennt gebaut und installieren sich auf
+dem Handy nebeneinander.
+
+| Modul | App | Worum es geht |
+|---|---|---|
+| `app/` | **Giftshop Crew** | Schicht-Countdown, Musikplayer mit Tempo-Regler, Quiz, Speed Dating, Schätzfragen, Podcast-Themen |
+| `steamfun/` | **Steam Fun** | Ratespiel: echte Steam-Seiten, wie viele Reviews hat das Spiel? |
+
+## APK bekommen
+
+Beide APKs baut GitHub Actions, sie liegen nicht im Repo.
+
+1. Tab **Actions** → Workflow **Android CI** → letzter Lauf auf diesem Branch
+2. Unter **Artifacts**:
+   - `giftshop-crew-debug-apk` — Giftshop Crew, direkt installierbar
+   - `steam-fun-debug-apk` — Steam Fun, direkt installierbar
+   - `release-apks-unsigned` — beide von R8 verkleinert, aber **unsigniert**
+     und damit nicht installierbar
+3. ZIP entpacken, `app-debug.apk` aufs Gerät, Installation aus unbekannten
+   Quellen erlauben, öffnen.
+
+---
+
+# Giftshop Crew
 
 ## Funktionen
 
@@ -64,21 +84,6 @@ einstellbaren **Festivalstart (Donnerstag)**, standardmäßig dem nächsten
 Donnerstag. Das Datum lässt sich unten auf dem Schicht-Tab über „Ändern"
 setzen — danach stimmen alle Countdowns.
 
-## APK bekommen
-
-Die APK wird von GitHub Actions gebaut, nicht im Repo abgelegt.
-
-1. Tab **Actions** → Workflow **Android CI** → letzter Lauf auf diesem Branch
-2. Unter **Artifacts**:
-   - `showbox-debug-apk` — mit dem Debug-Keystore signiert, direkt installierbar
-   - `showbox-release-apk-unsigned` — von R8 verkleinert, aber **unsigniert**
-     und damit nicht installierbar
-3. ZIP entpacken, `app-debug.apk` aufs Gerät kopieren, Installation aus
-   unbekannten Quellen erlauben, öffnen.
-
-Beim ersten Start nach Benachrichtigungen fragen lassen — sonst kommt der
-Schichtalarm nicht an, wenn die App im Hintergrund ist.
-
 ## Lokal bauen
 
 Braucht das Android SDK (Platform 35) und JDK 17+:
@@ -137,3 +142,73 @@ danebenstellen. Sag Bescheid, wenn das Paket trotzdem mitziehen soll.
   System sie, kommt der Alarm bis zu eine Minute später.
 - Der Schichtplan steht im Code, nicht in der Oberfläche — nur das Startdatum
   ist einstellbar.
+
+---
+
+# Steam Fun
+
+Ratespiel: die App zeigt eine zufällige Steam-Seite, du schätzt, wie viele
+Reviews das Spiel hat. Liegst du richtig, gibt es Konfetti; liegst du daneben,
+ein rotes ❌. Die echte Zahl erscheint erst nach dem Tipp.
+
+## Zwei Modi
+
+**Roundabout** — sechs Knöpfe: `0 – 10`, `10 – 100`, `100 – 500`, `500 – 1.000`,
+`1.000 – 5.000`, `5.000+`. Die Beschriftungen teilen sich ihre Endpunkte, deshalb
+gehört jeder Endwert zum unteren Bereich: 100 Reviews sind `100 – 500`, 101 dann
+`500 – 1.000`. So fällt jede Zahl in genau einen Bereich.
+
+**Accurate** — du tippst die Zahl selbst ein. Exakt treffen kann niemand, sonst
+gäbe es nie Konfetti, also zählt ein Tipp innerhalb von **±25 %** als Treffer.
+Bei Spielen mit sehr wenigen Reviews greift eine Untergrenze von 2, damit auch
+die spielbar bleiben. Nach dem Tipp steht da, um wie viel Prozent du daneben lagst.
+
+## Woher die Daten kommen
+
+Alles kommt zur Laufzeit direkt von Steam, nichts steckt fest in der App:
+
+- `store.steampowered.com/api/appdetails` → Name und Store-Bild
+- `store.steampowered.com/appreviews/<id>?json=1` → `total_reviews`
+
+Damit ist die angezeigte Zahl immer die aktuelle und kann gar nicht erfunden
+sein. Eingebaut ist nur eine Liste von Appid-Kandidaten. Zeigt eine davon auf
+DLC, einen Soundtrack oder ins Leere, wird sie zur Laufzeit aussortiert und ein
+anderes Spiel gezogen — ein falscher Eintrag kostet also einen Nachzieher, nicht
+eine falsche Anzeige.
+
+**Ohne Internet läuft das Spiel nicht.** Es gibt bewusst keinen Offline-Vorrat:
+gespeicherte Reviewzahlen würden veralten und als „tatsächliche" Zahl schlicht
+falsch dastehen.
+
+## Aufbau
+
+```
+steamfun/src/main/java/com/example/steamfun/
+├── MainActivity.kt
+├── data/
+│   ├── ReviewBucket.kt   die sechs Bereiche, lückenlos und überschneidungsfrei
+│   ├── Guessing.kt       Modi, Trefferregeln, Eingabe-Parsing
+│   ├── SteamJson.kt      Antworten von Steam lesen
+│   ├── SteamApi.kt       HTTP und Bildladen
+│   └── AppIds.kt         Appid-Kandidaten
+└── ui/
+    ├── SteamFunViewModel.kt  Rundenablauf und Punktestand
+    ├── GameScreen.kt         Store-Karte, Eingabe, Ergebnis
+    ├── Confetti.kt           Partikel auf einem Canvas, ohne Fremdbibliothek
+    └── theme/                Steams eigene Dunkelblautöne
+```
+
+Die Reviewzahl reist zwar ab der ersten Sekunde im Zustand mit, aber nur der
+Zustand `Answered` darf sie rendern — das ist das ganze Spiel.
+
+`ReviewBucket`, `Guessing` und `SteamJson` kommen ohne Android-Typen aus und
+sind mit 44 Unit-Tests abgedeckt, unter anderem gegen Steams Eigenart, bei
+unbekannten Appids `"data": []` statt eines Objekts zu senden.
+
+## Grenzen
+
+- Getestet ist die Logik, nicht die Verbindung: die Steam-API war aus der
+  Bauumgebung nicht erreichbar, das Zusammenspiel zeigt sich erst auf dem Gerät.
+- `appdetails` ist ratenbegrenzt (grob 200 Anfragen pro 5 Minuten). Wer sehr
+  schnell durchklickt, läuft in Fehlversuche.
+- Die Kandidatenliste ist fest im Code, nicht Steams vollständiger Katalog.

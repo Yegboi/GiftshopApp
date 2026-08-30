@@ -20,5 +20,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Showbox"
+rootProject.name = "GiftshopApp"
+
 include(":app")
+include(":steamfun")
