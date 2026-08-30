@@ -1,9 +1,10 @@
-# Showbox
+# Giftshop Crew
 
 Android-App für den Festivalkiosk bei **Wasted in Jarmen**. Sechs Bereiche:
 Schicht-Countdown, Musikplayer mit Geschwindigkeitsregler, Quiz, Speed Dating,
 Schätzfragen und Podcast-Themen. Kotlin mit Jetpack Compose, durchgehend
-dunkles Theme mit gelber Schrift.
+dunkles Theme: weiße Schrift, ein einziger Gelbton für Akzente, und je
+eine eigene Farbe pro Kategorie in der unteren Leiste.
 
 ## Funktionen
 
@@ -105,6 +106,13 @@ Die Zeit- und Speicherlogik ist frei von Android-Typen und liegt in `data/` —
 deshalb ist sie ohne Emulator testbar. Die Tests decken unter anderem den
 Wechsel von „bis Schichtbeginn" auf „noch so lange", die Donnerstagsschicht
 über Mitternacht hinaus und das einmalige Auslösen des Alarms ab.
+
+## Namen im Code
+
+Die App heißt **Giftshop Crew**; Paket und Ordner heißen weiterhin
+`com.example.showbox`. Das ist Absicht: die `applicationId` zu ändern würde
+eine bereits installierte App nicht aktualisieren, sondern eine zweite
+danebenstellen. Sag Bescheid, wenn das Paket trotzdem mitziehen soll.
 
 ## Grenzen
 

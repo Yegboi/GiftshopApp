@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -26,6 +27,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.showbox.data.Category
+import com.example.showbox.ui.theme.TabDating
+import com.example.showbox.ui.theme.TabGuess
+import com.example.showbox.ui.theme.TabMusic
+import com.example.showbox.ui.theme.TabPodcast
+import com.example.showbox.ui.theme.TabQuiz
+import com.example.showbox.ui.theme.TabShift
 import com.example.showbox.ui.screens.EntryListScreen
 import com.example.showbox.ui.screens.PlayerScreen
 import com.example.showbox.ui.screens.ShiftScreen
@@ -38,14 +45,15 @@ private enum class Destination(
     val route: String,
     val label: String,
     val icon: ImageVector,
+    val tint: Color,
     val category: Category?,
 ) {
-    SHIFT("shift", "Schicht", Icons.Filled.DateRange, null),
-    MUSIC("music", "Musik", Icons.Filled.PlayArrow, null),
-    QUIZ("quiz", "Quiz", Icons.Filled.Star, Category.QUIZ),
-    SPEED_DATING("dating", "Dating", Icons.Filled.Favorite, Category.SPEED_DATING),
-    ESTIMATION("estimation", "Schätzen", Icons.Filled.Search, Category.ESTIMATION),
-    PODCAST("podcast", "Podcast", Icons.Filled.Create, Category.PODCAST),
+    SHIFT("shift", "Schicht", Icons.Filled.DateRange, TabShift, null),
+    MUSIC("music", "Musik", Icons.Filled.PlayArrow, TabMusic, null),
+    QUIZ("quiz", "Quiz", Icons.Filled.Star, TabQuiz, Category.QUIZ),
+    SPEED_DATING("dating", "Dating", Icons.Filled.Favorite, TabDating, Category.SPEED_DATING),
+    ESTIMATION("estimation", "Schätzen", Icons.Filled.Search, TabGuess, Category.ESTIMATION),
+    PODCAST("podcast", "Podcast", Icons.Filled.Create, TabPodcast, Category.PODCAST),
 }
 
 /**
@@ -82,11 +90,11 @@ fun ShowboxApp() {
                         icon = { Icon(destination.icon, contentDescription = null) },
                         label = { Text(destination.label) },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.onPrimary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primary,
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            selectedIconColor = MaterialTheme.colorScheme.background,
+                            selectedTextColor = destination.tint,
+                            indicatorColor = destination.tint,
+                            unselectedIconColor = destination.tint.copy(alpha = 0.62f),
+                            unselectedTextColor = destination.tint.copy(alpha = 0.62f),
                         ),
                     )
                 }

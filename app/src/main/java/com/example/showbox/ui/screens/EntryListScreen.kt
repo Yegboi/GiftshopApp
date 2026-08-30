@@ -56,7 +56,7 @@ fun EntryListScreen(category: Category, library: LibraryViewModel) {
                 title = { Text(category.label) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
                 ),
             )
         },
@@ -82,7 +82,7 @@ fun EntryListScreen(category: Category, library: LibraryViewModel) {
                 Text(
                     text = "Noch nichts da",
                     style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = MaterialTheme.colorScheme.onBackground,
                 )
                 Text(
                     text = "Tippe auf das Plus, um die erste " +
@@ -144,7 +144,7 @@ private fun EntryCard(
                 Text(
                     text = "$index.",
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(end = 10.dp),
                 )
                 Text(
@@ -199,7 +199,7 @@ private fun AddEntryDialog(
         title = {
             Text(
                 text = "Neue ${category.promptLabel}",
-                color = MaterialTheme.colorScheme.primary,
+                color = MaterialTheme.colorScheme.onBackground,
             )
         },
         text = {

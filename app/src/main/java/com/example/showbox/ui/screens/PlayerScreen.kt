@@ -81,7 +81,7 @@ fun PlayerScreen(library: LibraryViewModel, player: PlayerViewModel) {
                 title = { Text("Musik") },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
                 ),
             )
         },
@@ -112,7 +112,7 @@ fun PlayerScreen(library: LibraryViewModel, player: PlayerViewModel) {
                 Text(
                     text = "Deine Lieder (${library.songs.size})",
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = MaterialTheme.colorScheme.onBackground,
                 )
             }
 
@@ -161,7 +161,7 @@ private fun PlayerPanel(player: PlayerViewModel) {
             Text(
                 text = song?.title ?: "Kein Lied ausgewählt",
                 style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.primary,
+                color = MaterialTheme.colorScheme.onBackground,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -217,7 +217,7 @@ private fun PlayerPanel(player: PlayerViewModel) {
                 Text(
                     text = "Geschwindigkeit",
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = MaterialTheme.colorScheme.onBackground,
                 )
                 Text(
                     text = formatSpeed(player.speed),

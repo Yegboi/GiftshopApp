@@ -9,37 +9,38 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 /**
- * One fixed dark scheme with yellow text and controls. The app does not follow
- * the system light/dark setting and does not use Material You wallpaper
- * colours — the yellow-on-black look is the point.
+ * One fixed dark scheme: white text on near-black, with a single yellow for
+ * accents. The app ignores the system light/dark setting and Material You —
+ * the look is the point.
  */
 private val ShowboxColors = darkColorScheme(
     primary = Yellow,
     onPrimary = OnYellow,
-    primaryContainer = YellowDeep,
-    onPrimaryContainer = YellowBright,
+    // A translucent wash of the same yellow, so highlights add no second tone.
+    primaryContainer = Yellow.copy(alpha = 0.16f),
+    onPrimaryContainer = Yellow,
 
-    secondary = YellowBright,
-    onSecondary = OnYellow,
-    secondaryContainer = YellowDeep,
-    onSecondaryContainer = YellowBright,
+    secondary = TextWhite,
+    onSecondary = Ink,
+    secondaryContainer = InkVariant,
+    onSecondaryContainer = TextWhite,
 
-    tertiary = YellowDim,
-    onTertiary = OnYellow,
-    tertiaryContainer = YellowDeep,
-    onTertiaryContainer = YellowBright,
+    tertiary = TextMuted,
+    onTertiary = Ink,
+    tertiaryContainer = InkVariant,
+    onTertiaryContainer = TextWhite,
 
     background = Ink,
-    onBackground = YellowBright,
+    onBackground = TextWhite,
     surface = Ink,
-    onSurface = YellowBright,
+    onSurface = TextWhite,
     surfaceVariant = InkVariant,
-    onSurfaceVariant = YellowDim,
+    onSurfaceVariant = TextMuted,
     surfaceContainer = InkRaised,
     surfaceContainerHigh = InkVariant,
 
     outline = InkOutline,
-    outlineVariant = YellowDeep,
+    outlineVariant = InkOutline,
 
     error = Danger,
     onError = OnDanger,

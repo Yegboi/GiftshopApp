@@ -73,7 +73,7 @@ fun ShiftScreen(shift: ShiftViewModel) {
                 title = { Text("Schicht") },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
                 ),
             )
         },
@@ -107,7 +107,7 @@ fun ShiftScreen(shift: ShiftViewModel) {
                 Text(
                     text = "Deine Schichten",
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }
@@ -143,7 +143,7 @@ private fun PersonPicker(onPick: (Person) -> Unit, modifier: Modifier = Modifier
         Text(
             text = "Wer bist du?",
             style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.primary,
+            color = MaterialTheme.colorScheme.onBackground,
         )
         Text(
             text = "${ShiftPlan.VENUE} · ${ShiftPlan.FESTIVAL_NAME}",
@@ -307,7 +307,7 @@ private fun ShiftRow(instance: ShiftInstance, isCurrent: Boolean) {
             Text(
                 text = instance.start.format(DayFormat),
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
+                color = MaterialTheme.colorScheme.onBackground,
             )
             Text(
                 text = instance.shift.timeLabel,
