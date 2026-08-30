@@ -51,6 +51,8 @@ import com.example.showbox.data.Song
 import com.example.showbox.data.SpeedRange
 import com.example.showbox.data.formatDuration
 import com.example.showbox.data.formatSpeed
+import com.example.showbox.data.sliderToSpeed
+import com.example.showbox.data.speedToSlider
 import com.example.showbox.ui.LibraryViewModel
 import com.example.showbox.ui.PlayerViewModel
 import com.example.showbox.ui.components.PlayPauseButton
@@ -227,11 +229,11 @@ private fun PlayerPanel(player: PlayerViewModel) {
                 )
             }
 
+            // Position is logarithmic, so the slow end gets most of the track.
             Slider(
-                value = player.speed,
-                onValueChange = { player.changeSpeed(it) },
-                valueRange = SpeedRange.MIN..SpeedRange.MAX,
-                steps = SpeedRange.SLIDER_STEPS,
+                value = speedToSlider(player.speed),
+                onValueChange = { player.changeSpeed(sliderToSpeed(it)) },
+                valueRange = 0f..1f,
             )
 
             Row(

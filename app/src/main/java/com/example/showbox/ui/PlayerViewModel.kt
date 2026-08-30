@@ -13,6 +13,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.showbox.data.Song
 import com.example.showbox.data.SpeedRange
+import com.example.showbox.data.formatSpeed
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -26,6 +27,9 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     /** MediaPlayer only accepts most calls once prepared; guards every access. */
     private var prepared = false
+
+    /** Last speed the device actually accepted, to fall back on if it rejects one. */
+    private var lastAppliedSpeed = SpeedRange.DEFAULT
 
     var currentSong by mutableStateOf<Song?>(null)
         private set
@@ -75,7 +79,11 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             mp.setOnPreparedListener { ready ->
                 prepared = true
                 durationMs = runCatching { ready.duration }.getOrDefault(0)
-                applySpeed(ready, speed, shouldPlay = true)
+                if (!applySpeed(ready, speed, shouldPlay = true)) {
+                    speed = SpeedRange.DEFAULT
+                    applySpeed(ready, SpeedRange.DEFAULT, shouldPlay = true)
+                }
+                lastAppliedSpeed = speed
                 isPlaying = true
             }
             mp.setOnCompletionListener {
@@ -110,8 +118,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 mp.pause()
                 isPlaying = false
             } else {
-                applySpeed(mp, speed, shouldPlay = true)
-                isPlaying = true
+                // A refused speed leaves the player paused, so do not claim otherwise.
+                isPlaying = applySpeed(mp, speed, shouldPlay = true)
             }
         } catch (e: IllegalStateException) {
             errorMessage = "Wiedergabe nicht möglich."
@@ -120,10 +128,19 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     fun changeSpeed(value: Float) {
         val clamped = SpeedRange.clamp(value)
-        speed = clamped
-        val mp = player ?: return
-        if (!prepared) return
-        applySpeed(mp, clamped, shouldPlay = isPlaying)
+        val mp = player
+        if (mp == null || !prepared) {
+            // Nothing loaded yet: remember it and apply when a song starts.
+            speed = clamped
+            return
+        }
+        if (applySpeed(mp, clamped, shouldPlay = isPlaying)) {
+            speed = clamped
+            lastAppliedSpeed = clamped
+        } else {
+            // The device kept the old rate, so the slider must snap back to it.
+            speed = lastAppliedSpeed
+        }
     }
 
     fun resetSpeed() = changeSpeed(SpeedRange.DEFAULT)
@@ -149,18 +166,23 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     /**
      * Applies [value] and restores the intended play/pause state, because
      * `setPlaybackParams` resumes a paused player as a side effect.
+     *
+     * Returns false when the device refused the rate.
      */
-    private fun applySpeed(mp: MediaPlayer, value: Float, shouldPlay: Boolean) {
+    private fun applySpeed(mp: MediaPlayer, value: Float, shouldPlay: Boolean): Boolean =
         try {
             mp.playbackParams = mp.playbackParams.setSpeed(value)
             if (shouldPlay && !mp.isPlaying) mp.start()
             if (!shouldPlay && mp.isPlaying) mp.pause()
+            true
         } catch (e: IllegalStateException) {
             errorMessage = "Geschwindigkeit konnte nicht gesetzt werden."
+            false
         } catch (e: IllegalArgumentException) {
-            errorMessage = "Diese Geschwindigkeit unterstützt das Gerät nicht."
+            // Extreme rates are decoder dependent; not every device goes this low.
+            errorMessage = "${formatSpeed(value)} schafft dieses Gerät nicht."
+            false
         }
-    }
 
     private fun release() {
         player?.let { mp ->

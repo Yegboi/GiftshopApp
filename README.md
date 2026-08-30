@@ -16,8 +16,15 @@ Bierchen!"**. Der Alarm kommt zusätzlich als Benachrichtigung, wenn die App
 geschlossen ist.
 
 **Musik** — Audiodateien vom Gerät laden und abspielen. Ein Slider regelt die
-Abspielgeschwindigkeit von 0,5x bis 2,0x in 0,1er-Schritten, tonhöhenkorrigiert.
-Dazu Fortschrittsbalken, Play/Pause und ein Zurücksetzen auf Normaltempo.
+Abspielgeschwindigkeit von **0,05x bis 2,0x** — also bis auf ein Zwanzigstel des
+Normaltempos — tonhöhenkorrigiert. Der Regler läuft logarithmisch: linear läge
+der ganze Langsam-Bereich in 23 % der Strecke, so sind es 62 %, und 1,0x liegt
+bei 81 %. Der Knopf „Normal (1,0x)" trifft das Normaltempo exakt.
+Dazu Fortschrittsbalken und Play/Pause.
+
+Sehr langsame Raten hängen vom Decoder ab. Lehnt das Gerät eine ab, springt der
+Regler auf den zuletzt akzeptierten Wert zurück, statt ein Tempo anzuzeigen, das
+gar nicht läuft.
 
 **Quiz** und **Schätzfragen** — Frage und Antwort. Die Antwort ist zunächst
 verdeckt und lässt sich pro Eintrag aufdecken, damit man die Frage erst
@@ -89,7 +96,7 @@ app/src/main/java/com/example/showbox/
 │   ├── Entries.kt             Validierung neuer Einträge
 │   ├── DefaultEntries.kt      Platzhalterfragen
 │   ├── LibraryStore.kt        Fragen und Lieder als JSON
-│   ├── Playback.kt            Tempobereich und Zeitformatierung
+│   ├── Playback.kt            Tempobereich, Reglerkurve, Zeitformatierung
 │   ├── ShiftPlan.kt           Rota, Countdown-Logik
 │   └── ShiftStore.kt          Person und Festivaldatum
 └── ui/
@@ -102,8 +109,8 @@ app/src/main/java/com/example/showbox/
     └── theme/                 Dunkel mit Gelb, fest eingestellt
 ```
 
-Die Zeit- und Speicherlogik ist frei von Android-Typen und liegt in `data/` —
-deshalb ist sie ohne Emulator testbar. Die Tests decken unter anderem den
+Das gesamte `data/`-Paket ist frei von Android-Typen und lässt sich deshalb
+auch ohne Emulator ausführen — 63 Unit-Tests decken es ab. Die Tests decken unter anderem den
 Wechsel von „bis Schichtbeginn" auf „noch so lange", die Donnerstagsschicht
 über Mitternacht hinaus und das einmalige Auslösen des Alarms ab.
 
