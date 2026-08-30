@@ -22,9 +22,16 @@ der ganze Langsam-Bereich in 23 % der Strecke, so sind es 62 %, und 1,0x liegt
 bei 81 %. Der Knopf „Normal (1,0x)" trifft das Normaltempo exakt.
 Dazu Fortschrittsbalken und Play/Pause.
 
-Sehr langsame Raten hängen vom Decoder ab. Lehnt das Gerät eine ab, springt der
-Regler auf den zuletzt akzeptierten Wert zurück, statt ein Tempo anzuzeigen, das
-gar nicht läuft.
+Verlangsamt wird wie bei einem Plattenspieler: die Tonhöhe fällt mit dem Tempo.
+Technisch wird die Tonhöhe auf denselben Faktor gesetzt wie die Geschwindigkeit —
+damit wird das Stretch-Verhältnis intern 1, der Zeitdehner fällt weg und es
+bleibt reines Resampling. Mit Geschwindigkeit allein müsste der Zeitdehner bei
+0,05x das Zwanzigfache an Material erfinden, was zerhackt klingt.
+
+Wie tief ein Resampler geht, ist geräteabhängig. Lehnt das Gerät eine Rate ab,
+wird schrittweise etwas schneller nachgefragt, bis eine angenommen wird — der
+Regler landet dann auf dem Langsamsten, was dieses Gerät kann, statt zu
+verweigern.
 
 **Quiz** und **Schätzfragen** — Frage und Antwort. Die Antwort ist zunächst
 verdeckt und lässt sich pro Eintrag aufdecken, damit man die Frage erst

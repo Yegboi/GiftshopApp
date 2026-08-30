@@ -236,6 +236,12 @@ private fun PlayerPanel(player: PlayerViewModel) {
                 valueRange = 0f..1f,
             )
 
+            Text(
+                text = "Die Tonhöhe fällt mit — wie beim Plattenspieler.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,

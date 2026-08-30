@@ -79,12 +79,17 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             mp.setOnPreparedListener { ready ->
                 prepared = true
                 durationMs = runCatching { ready.duration }.getOrDefault(0)
-                if (!applySpeed(ready, speed, shouldPlay = true)) {
+
+                val accepted = applyRate(ready, speed, shouldPlay = true)
+                if (accepted != null) {
+                    speed = accepted
+                    isPlaying = true
+                } else {
+                    // No rate could be set at all; start at normal speed.
                     speed = SpeedRange.DEFAULT
-                    applySpeed(ready, SpeedRange.DEFAULT, shouldPlay = true)
+                    isPlaying = applyRate(ready, SpeedRange.DEFAULT, shouldPlay = true) != null
                 }
                 lastAppliedSpeed = speed
-                isPlaying = true
             }
             mp.setOnCompletionListener {
                 isPlaying = false
@@ -118,8 +123,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 mp.pause()
                 isPlaying = false
             } else {
-                // A refused speed leaves the player paused, so do not claim otherwise.
-                isPlaying = applySpeed(mp, speed, shouldPlay = true)
+                // A refused rate leaves the player paused, so do not claim otherwise.
+                isPlaying = applyRate(mp, speed, shouldPlay = true) != null
             }
         } catch (e: IllegalStateException) {
             errorMessage = "Wiedergabe nicht möglich."
@@ -134,12 +139,18 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             speed = clamped
             return
         }
-        if (applySpeed(mp, clamped, shouldPlay = isPlaying)) {
-            speed = clamped
-            lastAppliedSpeed = clamped
-        } else {
+        val accepted = applyRate(mp, clamped, shouldPlay = isPlaying)
+        if (accepted == null) {
             // The device kept the old rate, so the slider must snap back to it.
             speed = lastAppliedSpeed
+            errorMessage = "Geschwindigkeit konnte nicht gesetzt werden."
+            return
+        }
+
+        speed = accepted
+        lastAppliedSpeed = accepted
+        if (accepted > clamped + RATE_EPSILON) {
+            errorMessage = "Langsamer als ${formatSpeed(accepted)} kann dieses Gerät nicht."
         }
     }
 
@@ -164,25 +175,41 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * Applies [value] and restores the intended play/pause state, because
-     * `setPlaybackParams` resumes a paused player as a side effect.
+     * Slows down the way a record player does, and returns the rate the device
+     * accepted — or null if no rate could be set.
      *
-     * Returns false when the device refused the rate.
+     * Pitch is set to the same factor as speed on purpose. Speed alone drives
+     * the time-stretcher, which has to invent twenty times the material at
+     * 0.05x and comes out chopped up. With pitch matching speed the stretch
+     * ratio becomes 1, the stretcher drops out, and plain resampling is left:
+     * slower and correspondingly deeper, the way a record sounds spun down.
+     *
+     * Also restores the intended play/pause state, because setPlaybackParams
+     * resumes a paused player as a side effect.
+     *
+     * Resamplers have a floor, and it is not the same on every device, so a
+     * refused rate is retried a little closer to normal until one sticks. The
+     * slider then lands on the slowest this particular device manages instead
+     * of refusing outright.
      */
-    private fun applySpeed(mp: MediaPlayer, value: Float, shouldPlay: Boolean): Boolean =
-        try {
-            mp.playbackParams = mp.playbackParams.setSpeed(value)
-            if (shouldPlay && !mp.isPlaying) mp.start()
-            if (!shouldPlay && mp.isPlaying) mp.pause()
-            true
-        } catch (e: IllegalStateException) {
-            errorMessage = "Geschwindigkeit konnte nicht gesetzt werden."
-            false
-        } catch (e: IllegalArgumentException) {
-            // Extreme rates are decoder dependent; not every device goes this low.
-            errorMessage = "${formatSpeed(value)} schafft dieses Gerät nicht."
-            false
+    private fun applyRate(mp: MediaPlayer, target: Float, shouldPlay: Boolean): Float? {
+        var candidate = target
+        repeat(RATE_FALLBACK_TRIES) {
+            try {
+                mp.playbackParams = mp.playbackParams.setSpeed(candidate).setPitch(candidate)
+                if (shouldPlay && !mp.isPlaying) mp.start()
+                if (!shouldPlay && mp.isPlaying) mp.pause()
+                return candidate
+            } catch (e: IllegalArgumentException) {
+                // Outside the resampler's range; step toward normal and retry.
+                candidate = (candidate * RATE_FALLBACK_FACTOR).coerceAtMost(SpeedRange.MAX)
+            } catch (e: IllegalStateException) {
+                // The player cannot accept any rate right now.
+                return null
+            }
         }
+        return null
+    }
 
     private fun release() {
         player?.let { mp ->
@@ -203,5 +230,10 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     private companion object {
         const val POLL_INTERVAL_MS = 250L
+
+        /** How far each retry moves toward normal speed when a rate is refused. */
+        const val RATE_FALLBACK_FACTOR = 1.3f
+        const val RATE_FALLBACK_TRIES = 8
+        const val RATE_EPSILON = 0.001f
     }
 }
