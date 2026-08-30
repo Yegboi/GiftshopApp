@@ -118,7 +118,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun setSpeed(value: Float) {
+    fun changeSpeed(value: Float) {
         val clamped = SpeedRange.clamp(value)
         speed = clamped
         val mp = player ?: return
@@ -126,7 +126,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         applySpeed(mp, clamped, shouldPlay = isPlaying)
     }
 
-    fun resetSpeed() = setSpeed(SpeedRange.DEFAULT)
+    fun resetSpeed() = changeSpeed(SpeedRange.DEFAULT)
 
     fun seekTo(ms: Int) {
         val mp = player ?: return

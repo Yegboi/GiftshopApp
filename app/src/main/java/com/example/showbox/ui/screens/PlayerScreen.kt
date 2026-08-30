@@ -229,7 +229,7 @@ private fun PlayerPanel(player: PlayerViewModel) {
 
             Slider(
                 value = player.speed,
-                onValueChange = { player.setSpeed(it) },
+                onValueChange = { player.changeSpeed(it) },
                 valueRange = SpeedRange.MIN..SpeedRange.MAX,
                 steps = SpeedRange.SLIDER_STEPS,
             )
