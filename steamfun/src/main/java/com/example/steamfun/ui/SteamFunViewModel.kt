@@ -6,13 +6,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.steamfun.data.GuessMode
-import com.example.steamfun.data.Guessing
 import com.example.steamfun.data.ReviewBucket
 import com.example.steamfun.data.SteamApi
 import com.example.steamfun.data.SteamGame
-import com.example.steamfun.data.formatCount
+import com.example.steamfun.data.matches
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.random.Random
 
@@ -33,8 +32,7 @@ sealed interface RoundState {
     data class Answered(
         val game: SteamGame,
         val correct: Boolean,
-        val guessLabel: String,
-        val deviationPercent: Int?,
+        val guess: ReviewBucket,
     ) : RoundState
 }
 
@@ -56,14 +54,9 @@ class SteamFunViewModel(private val api: SteamApi = SteamApi()) : ViewModel() {
     private val candidates = ArrayDeque<Int>()
 
     private var loadJob: Job? = null
-
-    var mode by mutableStateOf(GuessMode.ROUNDABOUT)
-        private set
+    private var autoAdvanceJob: Job? = null
 
     var round by mutableStateOf<RoundState>(RoundState.Loading("Verbinde mit Steam …"))
-        private set
-
-    var typedGuess by mutableStateOf("")
         private set
 
     var correctCount by mutableIntStateOf(0)
@@ -72,24 +65,17 @@ class SteamFunViewModel(private val api: SteamApi = SteamApi()) : ViewModel() {
     var playedCount by mutableIntStateOf(0)
         private set
 
+    /** Seconds left before the next round starts by itself; 0 when not counting. */
+    var autoAdvanceIn by mutableIntStateOf(0)
+        private set
+
     init {
         nextGame()
     }
 
-    fun selectMode(newMode: GuessMode) {
-        if (newMode == mode) return
-        mode = newMode
-        typedGuess = ""
-    }
-
-    fun onGuessTyped(text: String) {
-        typedGuess = text.filter { it.isDigit() }.take(MAX_GUESS_DIGITS)
-    }
-
-    val canSubmitTyped: Boolean get() = Guessing.parseGuess(typedGuess) != null
-
     fun nextGame() {
-        typedGuess = ""
+        autoAdvanceJob?.cancel()
+        autoAdvanceIn = 0
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
             repeat(MAX_ATTEMPTS) { attempt ->
@@ -109,7 +95,7 @@ class SteamFunViewModel(private val api: SteamApi = SteamApi()) : ViewModel() {
                     return@launch
                 }
 
-                // Some entries are still DLC or region locked; those are skipped.
+                // Skips DLC, region locks and anything not released yet.
                 val game = api.loadGame(candidates.removeFirst())
                 if (game != null) {
                     round = RoundState.Asking(game)
@@ -117,7 +103,8 @@ class SteamFunViewModel(private val api: SteamApi = SteamApi()) : ViewModel() {
                 }
             }
             round = RoundState.Failed(
-                "In $MAX_ATTEMPTS Anläufen kein Spiel gefunden. Steam drosselt womöglich gerade.",
+                "In $MAX_ATTEMPTS Anläufen kein erschienenes Spiel gefunden. " +
+                    "Steam drosselt womöglich gerade.",
             )
         }
     }
@@ -148,46 +135,50 @@ class SteamFunViewModel(private val api: SteamApi = SteamApi()) : ViewModel() {
         return true
     }
 
-    fun submitTypedGuess() {
+    fun submitGuess(bucket: ReviewBucket) {
         val asking = round as? RoundState.Asking ?: return
-        val guess = Guessing.parseGuess(typedGuess) ?: return
-        val actual = asking.game.totalReviews
-        finish(
-            game = asking.game,
-            correct = Guessing.accurateHit(guess, actual),
-            guessLabel = formatCount(guess),
-            deviation = Guessing.deviationPercent(guess, actual),
-        )
-    }
+        val correct = bucket.matches(asking.game.totalReviews)
 
-    fun submitBucket(bucket: ReviewBucket) {
-        val asking = round as? RoundState.Asking ?: return
-        finish(
-            game = asking.game,
-            correct = Guessing.roundaboutHit(bucket, asking.game.totalReviews),
-            guessLabel = bucket.label,
-            deviation = null,
-        )
-    }
-
-    private fun finish(game: SteamGame, correct: Boolean, guessLabel: String, deviation: Int?) {
         playedCount++
         if (correct) correctCount++
-        round = RoundState.Answered(
-            game = game,
-            correct = correct,
-            guessLabel = guessLabel,
-            deviationPercent = deviation,
-        )
+        round = RoundState.Answered(game = asking.game, correct = correct, guess = bucket)
+
+        startAutoAdvance()
+    }
+
+    /**
+     * Moves on by itself, so a round ends without having to scroll back up to
+     * find a button.
+     */
+    private fun startAutoAdvance() {
+        autoAdvanceJob?.cancel()
+        autoAdvanceJob = viewModelScope.launch {
+            for (second in AUTO_ADVANCE_SECONDS downTo 1) {
+                autoAdvanceIn = second
+                delay(1_000)
+            }
+            autoAdvanceIn = 0
+            // A manual tap in the meantime already moved on; do not double up.
+            if (round is RoundState.Answered) nextGame()
+        }
+    }
+
+    /**
+     * Stops the countdown when the player opens a screenshot, a trailer or the
+     * description — looking at the page is not a reason to be moved along.
+     */
+    fun pauseAutoAdvance() {
+        autoAdvanceJob?.cancel()
+        autoAdvanceIn = 0
     }
 
     private companion object {
-        /** Entries that turn out not to be games are skipped; this bounds the retrying. */
+        /** Entries that are DLC or unreleased are skipped; this bounds the retrying. */
         const val MAX_ATTEMPTS = 25
 
         /** Ids taken per search request, so one call feeds several rounds. */
         const val PAGE_SIZE = 50
 
-        const val MAX_GUESS_DIGITS = 9
+        const val AUTO_ADVANCE_SECONDS = 3
     }
 }

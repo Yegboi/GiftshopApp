@@ -19,6 +19,8 @@ class SteamApi {
             "https://store.steampowered.com/api/appdetails?appids=$appId&l=english",
         ) ?: return@withContext null
         val page = SteamJson.parseStorePage(appId, detailsBody) ?: return@withContext null
+        // An unreleased game has no reviews, so there is nothing to guess.
+        if (!page.isReleased) return@withContext null
 
         val reviewsBody = get(
             "https://store.steampowered.com/appreviews/$appId" +

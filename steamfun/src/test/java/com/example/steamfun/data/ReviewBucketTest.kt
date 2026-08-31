@@ -81,4 +81,19 @@ class ReviewBucketTest {
             assertEquals(bucket, ReviewBucket.of(bucket.from))
         }
     }
+
+    @Test
+    fun `a button matches exactly the counts in its own range`() {
+        assertTrue(ReviewBucket.UP_TO_500.matches(250))
+        assertTrue(!ReviewBucket.UP_TO_500.matches(501))
+        assertTrue(ReviewBucket.ABOVE_5000.matches(2_000_000))
+        assertTrue(ReviewBucket.UP_TO_10.matches(0))
+    }
+
+    @Test
+    fun `exactly one button matches any given count`() {
+        listOf(0, 10, 11, 100, 101, 500, 501, 1_000, 1_001, 5_000, 5_001, 987_654).forEach { n ->
+            assertEquals("bei $n", 1, ReviewBucket.entries.count { it.matches(n) })
+        }
+    }
 }

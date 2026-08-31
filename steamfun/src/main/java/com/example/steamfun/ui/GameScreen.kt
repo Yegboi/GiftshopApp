@@ -11,16 +11,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -33,21 +30,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.steamfun.data.GuessMode
-import com.example.steamfun.data.Guessing
 import com.example.steamfun.data.ReviewBucket
 import com.example.steamfun.data.Screenshot
-import com.example.steamfun.data.formatCount
 import com.example.steamfun.data.StorePage
 import com.example.steamfun.data.Trailer
+import com.example.steamfun.data.formatCount
 
 @Composable
 fun GameScreen(viewModel: SteamFunViewModel) {
     val round = viewModel.round
+    val scrollState = rememberScrollState()
 
     var openScreenshot by remember { mutableStateOf<Screenshot?>(null) }
     var openTrailer by remember { mutableStateOf<Trailer?>(null) }
@@ -57,6 +52,18 @@ fun GameScreen(viewModel: SteamFunViewModel) {
         is RoundState.Asking -> round.game.page
         is RoundState.Answered -> round.game.page
         else -> null
+    }
+
+    // Every state change starts at the top, so the result and the next store
+    // page are both in view without scrolling back up.
+    val roundKey = when (round) {
+        is RoundState.Asking -> "ask-${round.game.page.appId}"
+        is RoundState.Answered -> "answer-${round.game.page.appId}"
+        is RoundState.Loading -> "loading"
+        is RoundState.Failed -> "failed"
+    }
+    LaunchedEffect(roundKey) {
+        scrollState.animateScrollTo(0)
     }
 
     // A new store page closes whatever overlay belonged to the previous one.
@@ -92,12 +99,10 @@ fun GameScreen(viewModel: SteamFunViewModel) {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scrollState)
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                ModeSelector(mode = viewModel.mode, onSelect = viewModel::selectMode)
-
                 when (round) {
                     is RoundState.Loading -> LoadingCard(round.message)
 
@@ -112,11 +117,15 @@ fun GameScreen(viewModel: SteamFunViewModel) {
                             onPlayTrailer = { openTrailer = it },
                             onOpenDescription = { showDescription = true },
                         )
-                        GuessControls(viewModel)
+                        BucketButtons(onGuess = viewModel::submitGuess)
                     }
 
                     is RoundState.Answered -> {
-                        ResultCard(round, viewModel::nextGame)
+                        ResultCard(
+                            round = round,
+                            secondsLeft = viewModel.autoAdvanceIn,
+                            onNext = viewModel::nextGame,
+                        )
                         StorePageView(
                             page = round.game.page,
                             revealedReviews = round.game.totalReviews,
@@ -145,13 +154,17 @@ fun GameScreen(viewModel: SteamFunViewModel) {
         }
     }
 
+    // Opening any overlay means the player wants to look, so stop the clock.
     openScreenshot?.let { shot ->
+        LaunchedEffect(shot) { viewModel.pauseAutoAdvance() }
         ScreenshotDialog(screenshot = shot, onDismiss = { openScreenshot = null })
     }
     openTrailer?.let { trailer ->
+        LaunchedEffect(trailer) { viewModel.pauseAutoAdvance() }
         TrailerDialog(trailer = trailer, onDismiss = { openTrailer = null })
     }
     if (showDescription && page != null) {
+        LaunchedEffect(Unit) { viewModel.pauseAutoAdvance() }
         DescriptionDialog(
             title = page.name,
             html = page.detailedDescriptionHtml,
@@ -161,56 +174,18 @@ fun GameScreen(viewModel: SteamFunViewModel) {
 }
 
 @Composable
-private fun ModeSelector(mode: GuessMode, onSelect: (GuessMode) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        GuessMode.entries.forEach { candidate ->
-            FilterChip(
-                selected = candidate == mode,
-                onClick = { onSelect(candidate) },
-                label = { Text(candidate.label) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun GuessControls(viewModel: SteamFunViewModel) {
-    when (viewModel.mode) {
-        GuessMode.ACCURATE -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
-                value = viewModel.typedGuess,
-                onValueChange = viewModel::onGuessTyped,
-                label = { Text("Anzahl Reviews") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Text(
-                text = "Treffer bei ±${(Guessing.TOLERANCE * 100).toInt()} % der echten Zahl.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Button(
-                onClick = viewModel::submitTypedGuess,
-                enabled = viewModel.canSubmitTyped,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Tipp abgeben")
-            }
-        }
-
-        GuessMode.ROUNDABOUT -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            ReviewBucket.entries.chunked(2).forEach { pair ->
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    pair.forEach { bucket ->
-                        Button(
-                            onClick = { viewModel.submitBucket(bucket) },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(56.dp),
-                        ) {
-                            Text(bucket.label)
-                        }
+private fun BucketButtons(onGuess: (ReviewBucket) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        ReviewBucket.entries.chunked(2).forEach { pair ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                pair.forEach { bucket ->
+                    Button(
+                        onClick = { onGuess(bucket) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp),
+                    ) {
+                        Text(bucket.label)
                     }
                 }
             }
@@ -219,7 +194,7 @@ private fun GuessControls(viewModel: SteamFunViewModel) {
 }
 
 @Composable
-private fun ResultCard(round: RoundState.Answered, onNext: () -> Unit) {
+private fun ResultCard(round: RoundState.Answered, secondsLeft: Int, onNext: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -247,18 +222,17 @@ private fun ResultCard(round: RoundState.Answered, onNext: () -> Unit) {
             }
 
             Text(
-                text = "Dein Tipp: ${round.guessLabel}",
+                text = "Dein Tipp: ${round.guess.label}",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center,
             )
-            round.deviationPercent?.let { deviation ->
-                Text(
-                    text = if (deviation == 0) "Punktgenau." else "$deviation % daneben.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            Text(
+                text = "Tatsächlich: ${formatCount(round.game.totalReviews)} Reviews",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center,
+            )
 
             Button(
                 onClick = onNext,
@@ -266,7 +240,9 @@ private fun ResultCard(round: RoundState.Answered, onNext: () -> Unit) {
                     .fillMaxWidth()
                     .padding(top = 10.dp),
             ) {
-                Text("Nächstes Spiel")
+                Text(
+                    if (secondsLeft > 0) "Nächstes Spiel ($secondsLeft)" else "Nächstes Spiel",
+                )
             }
         }
     }

@@ -157,17 +157,32 @@ Entwickler, Erscheinungsdatum, Preis und Genres. Über „Ganze Beschreibung" ö
 sich Steams eigener Beschreibungstext als HTML — mitsamt der eingebetteten GIFs
 und AVIF-Bilder, die dort oft stehen.
 
-## Zwei Modi
+## So läuft eine Runde
 
-**Roundabout** — sechs Knöpfe: `0 – 10`, `10 – 100`, `100 – 500`, `500 – 1.000`,
-`1.000 – 5.000`, `5.000+`. Die Beschriftungen teilen sich ihre Endpunkte, deshalb
-gehört jeder Endwert zum unteren Bereich: 100 Reviews sind `100 – 500`, 101 dann
+Sechs Knöpfe: `0 – 10`, `10 – 100`, `100 – 500`, `500 – 1.000`, `1.000 – 5.000`,
+`5.000+`. Die Beschriftungen teilen sich ihre Endpunkte, deshalb gehört jeder
+Endwert zum unteren Bereich: 100 Reviews sind `100 – 500`, 101 dann
 `500 – 1.000`. So fällt jede Zahl in genau einen Bereich.
 
-**Accurate** — du tippst die Zahl selbst ein. Exakt treffen kann niemand, sonst
-gäbe es nie Konfetti, also zählt ein Tipp innerhalb von **±25 %** als Treffer.
-Bei Spielen mit sehr wenigen Reviews greift eine Untergrenze von 2, damit auch
-die spielbar bleiben. Nach dem Tipp steht da, um wie viel Prozent du daneben lagst.
+Nach dem Tipp erscheint das Ergebnis oben — mitsamt der echten Zahl — und nach
+drei Sekunden schaltet die App von allein zur nächsten Runde. Der Knopf zählt
+die Sekunden mit und lässt sich jederzeit vorher drücken. Öffnest du einen
+Screenshot, einen Trailer oder die Beschreibung, stoppt die Uhr: sich die Seite
+anzusehen ist kein Grund, weitergeschoben zu werden.
+
+## Nur erschienene Spiele
+
+Steam listet zehntausende angekündigte Titel, die noch nicht draußen sind. Die
+haben null Reviews und wären als Frage wertlos, also fliegen sie raus:
+
+- Steams eigenes `coming_soon`-Flag
+- und, weil manche Seiten es nicht setzen, ein Blick auf das Erscheinungsdatum:
+  Das Feld ist Freitext („10 Oct, 2007", „Q4 2027", „Demnächst"), also wird die
+  Jahreszahl herausgesucht. Alles ab dem nächsten Jahr — oder ganz ohne
+  Jahreszahl — gilt als nicht erschienen.
+
+Streng zu sein kostet nur einen Nachzieher; lax zu sein zeigt ein Spiel ohne
+Reviews, und darüber lohnt sich kein Raten.
 
 ## Woher die Daten kommen
 
@@ -205,15 +220,14 @@ würden veralten und als „tatsächliche" Zahl schlicht falsch dastehen.
 steamfun/src/main/java/com/example/steamfun/
 ├── MainActivity.kt
 ├── data/
-│   ├── ReviewBucket.kt   die sechs Bereiche, lückenlos und überschneidungsfrei
-│   ├── Guessing.kt       Modi, Trefferregeln, Eingabe-Parsing
-│   ├── StorePage.kt      Seite, Screenshots, Trailer
+│   ├── ReviewBucket.kt   die sechs Knöpfe, lückenlos und überschneidungsfrei
+│   ├── StorePage.kt      Seite, Screenshots, Trailer, Erschienen-Filter
 │   ├── SteamSearch.kt    zufälliges Offset in Steams Store-Liste
 │   ├── SteamJson.kt      Antworten von Steam lesen
 │   └── SteamApi.kt       HTTP
 └── ui/
-    ├── SteamFunViewModel.kt  Ziehung, Rundenablauf, Punktestand
-    ├── GameScreen.kt         Modi, Eingabe, Ergebnis
+    ├── SteamFunViewModel.kt  Ziehung, Rundenablauf, Punktestand, Weiterschaltung
+    ├── GameScreen.kt         Knöpfe, Ergebnis
     ├── StorePageView.kt      Titelbild, Trailer, Screenshots, Fakten
     ├── Overlays.kt           Vollbild für Screenshot, Trailer, Beschreibung
     ├── Confetti.kt           Partikel auf einem Canvas, ohne Fremdbibliothek
@@ -223,8 +237,8 @@ steamfun/src/main/java/com/example/steamfun/
 Die Reviewzahl reist zwar ab der ersten Sekunde im Zustand mit, aber nur der
 Zustand `Answered` darf sie rendern — das ist das ganze Spiel.
 
-`ReviewBucket`, `Guessing`, `SteamJson` und `SteamSearch` kommen ohne
-Android-Typen aus und sind mit 62 Unit-Tests abgedeckt — unter anderem gegen
+`ReviewBucket`, `ReleaseFilter`, `SteamJson` und `SteamSearch` kommen ohne
+Android-Typen aus und sind mit 59 Unit-Tests abgedeckt — unter anderem gegen
 Steams Eigenart, bei unbekannten Appids `"data": []` statt eines Objekts zu
 senden, und gegen die `http://`-Medienlinks, die Android sonst als Klartext
 blockiert.

@@ -28,5 +28,8 @@ enum class ReviewBucket(val label: String, val from: Int, val to: Int) {
     }
 }
 
+/** True when this button is the bucket the real count falls into. */
+fun ReviewBucket.matches(reviews: Int): Boolean = ReviewBucket.of(reviews) == this
+
 /** Thousands separator as used in German, e.g. `12345` -> `12.345`. */
 fun formatCount(count: Int): String = String.format(Locale.GERMAN, "%,d", count)

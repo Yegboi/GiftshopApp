@@ -62,6 +62,8 @@ object SteamJson {
             genres = (data["genres"] as? JsonArray).orEmpty()
                 .mapNotNull { (it as? JsonObject)?.string("description") },
             releaseDate = (data["release_date"] as? JsonObject)?.string("date").orEmpty(),
+            comingSoon = (data["release_date"] as? JsonObject)
+                ?.let { (it["coming_soon"] as? JsonPrimitive)?.booleanOrNull } == true,
             price = readPrice(data),
             screenshots = (data["screenshots"] as? JsonArray).orEmpty()
                 .mapNotNull { shot -> (shot as? JsonObject)?.let(::readScreenshot) },
