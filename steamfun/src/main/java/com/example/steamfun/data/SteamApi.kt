@@ -30,21 +30,17 @@ class SteamApi {
     }
 
     /**
-     * Downloads Steam's whole catalogue of appids. Tens of megabytes of JSON,
-     * so it is streamed and only the numbers are kept — see [AppListParser].
+     * Asks Steam's live store listing for a slice starting at [offset].
+     *
+     * Falls back to an unfiltered search once, in case the games category is
+     * not honoured — better a page with some DLC on it than no page at all.
      */
-    suspend fun downloadAppIds(): IntArray? = withContext(Dispatchers.IO) {
-        var connection: HttpURLConnection? = null
-        try {
-            connection = open("https://api.steampowered.com/ISteamApps/GetAppList/v2/")
-            if (connection.responseCode !in 200..299) return@withContext null
-            val ids = connection.inputStream.use { AppListParser.readAppIds(it) }
-            ids.takeIf { it.size >= MIN_PLAUSIBLE_CATALOGUE }
-        } catch (e: Exception) {
-            null
-        } finally {
-            connection?.disconnect()
-        }
+    suspend fun searchPage(offset: Int, count: Int): SearchPage? = withContext(Dispatchers.IO) {
+        val filtered = get(SteamSearch.url(offset, count, gamesOnly = true))
+            ?.let(SteamSearch::parse)
+        if (filtered != null && filtered.totalCount > 0) return@withContext filtered
+
+        get(SteamSearch.url(offset, count, gamesOnly = false))?.let(SteamSearch::parse)
     }
 
     private fun get(url: String): String? {
@@ -64,7 +60,7 @@ class SteamApi {
         (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             connectTimeout = TIMEOUT_MS
-            readTimeout = CATALOGUE_READ_TIMEOUT_MS
+            readTimeout = TIMEOUT_MS
             instanceFollowRedirects = true
             setRequestProperty("User-Agent", USER_AGENT)
             // Deliberately no Accept-Encoding: setting it by hand switches off
@@ -73,12 +69,6 @@ class SteamApi {
 
     private companion object {
         const val TIMEOUT_MS = 15_000
-
-        /** The catalogue is large; give it room before giving up. */
-        const val CATALOGUE_READ_TIMEOUT_MS = 60_000
-
-        /** A far smaller answer than this means something went wrong upstream. */
-        const val MIN_PLAUSIBLE_CATALOGUE = 10_000
 
         /** Steam serves the plain endpoints more reliably with a real user agent. */
         const val USER_AGENT =

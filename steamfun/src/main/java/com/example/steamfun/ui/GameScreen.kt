@@ -41,6 +41,7 @@ import com.example.steamfun.data.GuessMode
 import com.example.steamfun.data.Guessing
 import com.example.steamfun.data.ReviewBucket
 import com.example.steamfun.data.Screenshot
+import com.example.steamfun.data.formatCount
 import com.example.steamfun.data.StorePage
 import com.example.steamfun.data.Trailer
 
@@ -126,9 +127,12 @@ fun GameScreen(viewModel: SteamFunViewModel) {
                     }
                 }
 
-                if (viewModel.catalogueSize > 0) {
+                if (viewModel.storeTitleCount > 0) {
+                    // Visible proof that the draw spans the whole store rather
+                    // than some shortlist baked into the app.
                     Text(
-                        text = "Gezogen aus ${viewModel.catalogueSize} Steam-Einträgen.",
+                        text = "Live aus ${formatCount(viewModel.storeTitleCount)} " +
+                            "Steam-Titeln gezogen.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

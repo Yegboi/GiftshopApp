@@ -171,32 +171,33 @@ die spielbar bleiben. Nach dem Tipp steht da, um wie viel Prozent du daneben lag
 
 ## Woher die Daten kommen
 
-Alles kommt zur Laufzeit direkt von Steam, nichts steckt fest in der App:
+Jede Runde ist eine **Live-Abfrage an Steam**. Nichts wird vorab geladen,
+nichts liegt auf dem Gerät, nichts steckt in der App:
 
-- `api.steampowered.com/ISteamApps/GetAppList/v2` → **der gesamte Steam-Katalog**
+- `store.steampowered.com/search/results/?json=1` → ein zufälliger Ausschnitt
+  aus Steams laufender Store-Liste
 - `store.steampowered.com/api/appdetails` → Seite, Medien, Beschreibung
 - `store.steampowered.com/appreviews/<id>?json=1` → `total_reviews`
 
-Gezogen wird gleichverteilt aus dem **kompletten Katalog**, nicht aus einer
-Auswahl bekannter Titel — sonst kämen nur Blockbuster und jede Antwort wäre
-„5.000+". Entsprechend landet man meistens bei Namen, die man noch nie gehört
-hat, und die unteren Bereiche werden erst dadurch interessant.
+Die Store-Suche liefert mit `total_count` mit, wie viele Titel Steam gerade
+listet, und lässt sich an jedem beliebigen Offset anspringen. Die App würfelt
+also ein Offset zwischen 0 und `total_count` und nimmt, was dort steht. Weil
+jedes Offset gleich wahrscheinlich ist, spielt es keine Rolle, wie Steam die
+Ergebnisse sortiert — gezogen wird gleichverteilt über den ganzen Store. Unten
+auf dem Bildschirm steht die Zahl, aus der gerade gezogen wird.
 
-Der Katalog wird beim ersten Start einmal geladen. Die Antwort ist zig Megabyte
-JSON, wird deshalb im Stream gelesen und nur die Appids behalten — ein paar
-hunderttausend Ints statt der ganzen Datei. Danach liegt er eine Woche lokal.
+Pro Abfrage werden 50 Einträge geholt und gemischt, damit eine Suchanfrage
+mehrere Runden trägt statt Steam für jeden Zug einzeln zu belasten. Ist der
+Vorrat aufgebraucht, wird ein neues zufälliges Offset gewürfelt.
 
-Die meisten Appids sind DLC, Soundtracks, Tools oder längst entfernt. Solche
-werden zur Laufzeit aussortiert (`type == "game"`) und ein anderer Eintrag
-gezogen. Eine Runde braucht deshalb im Schnitt ein paar Anläufe — der Ladetext
-zählt sie mit.
+**Es gibt bewusst keine Ersatzliste.** Eine frühere Fassung fiel bei Netzproblemen
+still auf eine eingebaute Auswahl bekannter Spiele zurück — mit dem Ergebnis,
+dass genau die immer wieder kamen. Antwortet Steam nicht, sagt die App das jetzt
+und bietet einen neuen Versuch an, statt heimlich etwas anderes zu spielen.
 
-Scheitert der Katalog-Download, greift eine kleine eingebaute Ersatzliste, damit
-das Spiel überhaupt läuft.
-
-**Ohne Internet läuft das Spiel nicht.** Es gibt bewusst keinen Offline-Vorrat:
-gespeicherte Reviewzahlen würden veralten und als „tatsächliche" Zahl schlicht
-falsch dastehen.
+Damit ist auch die angezeigte Reviewzahl immer die aktuelle und kann gar nicht
+erfunden sein. **Ohne Internet läuft das Spiel nicht** — gespeicherte Zahlen
+würden veralten und als „tatsächliche" Zahl schlicht falsch dastehen.
 
 ## Aufbau
 
@@ -207,13 +208,11 @@ steamfun/src/main/java/com/example/steamfun/
 │   ├── ReviewBucket.kt   die sechs Bereiche, lückenlos und überschneidungsfrei
 │   ├── Guessing.kt       Modi, Trefferregeln, Eingabe-Parsing
 │   ├── StorePage.kt      Seite, Screenshots, Trailer
+│   ├── SteamSearch.kt    zufälliges Offset in Steams Store-Liste
 │   ├── SteamJson.kt      Antworten von Steam lesen
-│   ├── SteamApi.kt       HTTP
-│   ├── AppListParser.kt  Appids aus dem Katalog-Stream ziehen
-│   ├── AppIdCache.kt     Katalog binär auf Platte
-│   └── AppIds.kt         Ersatzliste, falls der Katalog fehlt
+│   └── SteamApi.kt       HTTP
 └── ui/
-    ├── SteamFunViewModel.kt  Katalog, Rundenablauf, Punktestand
+    ├── SteamFunViewModel.kt  Ziehung, Rundenablauf, Punktestand
     ├── GameScreen.kt         Modi, Eingabe, Ergebnis
     ├── StorePageView.kt      Titelbild, Trailer, Screenshots, Fakten
     ├── Overlays.kt           Vollbild für Screenshot, Trailer, Beschreibung
@@ -224,11 +223,11 @@ steamfun/src/main/java/com/example/steamfun/
 Die Reviewzahl reist zwar ab der ersten Sekunde im Zustand mit, aber nur der
 Zustand `Answered` darf sie rendern — das ist das ganze Spiel.
 
-`ReviewBucket`, `Guessing`, `SteamJson`, `AppListParser` und `AppIdCache`
-kommen ohne Android-Typen aus und sind mit 73 Unit-Tests abgedeckt — unter
-anderem gegen Steams Eigenart, bei unbekannten Appids `"data": []` statt eines
-Objekts zu senden, und gegen die `http://`-Medienlinks, die Android sonst als
-Klartext blockiert.
+`ReviewBucket`, `Guessing`, `SteamJson` und `SteamSearch` kommen ohne
+Android-Typen aus und sind mit 62 Unit-Tests abgedeckt — unter anderem gegen
+Steams Eigenart, bei unbekannten Appids `"data": []` statt eines Objekts zu
+senden, und gegen die `http://`-Medienlinks, die Android sonst als Klartext
+blockiert.
 
 ## Grenzen
 
@@ -237,7 +236,5 @@ Klartext blockiert.
 - `appdetails` ist ratenbegrenzt (grob 200 Anfragen pro 5 Minuten). Da eine
   Runde mehrere Anläufe braucht, kann sehr schnelles Durchklicken in die Drossel
   laufen.
-- Der erste Start lädt den Katalog herunter — je nach Verbindung dauert das
-  einen Moment und kostet Datenvolumen. Danach nur noch einmal pro Woche.
 - Trailer laufen über die Systemkomponente `VideoView`. Exotische Formate, die
   das Gerät nicht kann, spielen nicht.
